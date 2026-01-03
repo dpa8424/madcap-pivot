@@ -15,13 +15,6 @@ st.markdown("""
 using the MadcapVC methodology: *Data over fluff. Strategy over tactics.*
 """)
 
-# --- SIDEBAR (API KEY) ---
-with st.sidebar:
-    st.header("Settings")
-    api_key = st.text_input("Enter OpenAI API Key", type="password")
-    st.markdown("---")
-    st.caption("Your key is not stored. It is used only for this session.")
-
 # --- MAIN INPUTS ---
 col1, col2 = st.columns(2)
 
@@ -34,10 +27,16 @@ with col2:
 old_resume = st.text_area("Paste your Old Resume / LinkedIn Bio", height=300)
 
 # --- THE AGENT BRAIN ---
-def generate_pivot(resume, role, industry, key):
-    client = OpenAI(api_key=key)
+def generate_pivot(resume, role, industry):
+    # LOOK FOR THE KEY IN SECRETS
+    if "OPENAI_API_KEY" in st.secrets:
+        secret_key = st.secrets["OPENAI_API_KEY"]
+    else:
+        st.error("Missing API Key in Secrets")
+        return None
+        
+    client = OpenAI(api_key=secret_key)
     
-    # The Madcap System Prompt
     system_instruction = f"""
     You are the Chief Storytelling Officer (CSO) for MadcapVC. You are an expert in executive career pivots.
     
@@ -57,7 +56,7 @@ def generate_pivot(resume, role, industry, key):
     """
 
     response = client.chat.completions.create(
-        model="gpt-4o", # Using the smart model
+        model="gpt-4o",
         messages=[
             {"role": "system", "content": system_instruction},
             {"role": "user", "content": f"Here is my resume data:\n{resume}"}
@@ -68,17 +67,16 @@ def generate_pivot(resume, role, industry, key):
 
 # --- THE ACTION BUTTON ---
 if st.button("Generate My Narrative", type="primary"):
-    if not api_key:
-        st.error("Please enter your API Key in the sidebar first.")
-    elif not old_resume or not target_role:
+    if not old_resume or not target_role:
         st.warning("Please provide both a resume and a target role.")
     else:
         with st.spinner("Analyzing your career data..."):
             try:
-                result = generate_pivot(old_resume, target_role, target_industry, api_key)
-                st.success("Pivot Successful.")
-                st.markdown("### Your New Narrative")
-                st.markdown("---")
-                st.markdown(result)
+                result = generate_pivot(old_resume, target_role, target_industry)
+                if result:
+                    st.success("Pivot Successful.")
+                    st.markdown("### Your New Narrative")
+                    st.markdown("---")
+                    st.markdown(result)
             except Exception as e:
                 st.error(f"An error occurred: {e}")
