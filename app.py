@@ -26,7 +26,6 @@ def save_lead_to_sheets(name, email, phone, vision, session_id, ip, device):
         client = gspread.authorize(creds)
         sheet = client.open("Madcap Pivot Leads").sheet1
         timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        # Ensure we write strings to avoid JSON errors
         sheet.append_row([str(name), str(email), str(phone), str(vision), str(timestamp), str(session_id), str(ip), str(device)])
         return True
     except Exception as e:
@@ -40,61 +39,57 @@ if "messages" not in st.session_state:
     st.session_state.messages = []
 if "session_id" not in st.session_state:
     st.session_state.session_id = str(uuid.uuid4())
-if "current_stage" not in st.session_state:
-    st.session_state.current_stage = "Validation" # Tracks where the user is in the roadmap
+if "blueprint_stage" not in st.session_state:
+    st.session_state.blueprint_stage = 0 
+    # Stages: 0=Intro, 1=Validation, 2=Brand, 3=Systems, 4=Scale, 5=Complete
 
-# --- THE EFFORTLESS ENTREPRENEUR SYSTEM PROMPT ---
+# --- THE ARCHITECT SYSTEM PROMPT ---
 system_prompt_content = """
-You are the "Madcap Pivot" Coach. You are not a generic AI. You are a disciplined Business Builder following the 'Effortless Entrepreneur' methodology (Schwartz, Friedman, Soliman).
+You are the "Madcap Architect." You are helping a founder build a 50,000-foot Strategic Outline (The Madcap Blueprint).
 
-YOUR ROADMAP (Do not skip steps):
-1. **PHASE 1: THE CARGO VAN TEST (Validation)**
-   - Goal: Force the user to validate the idea NOW.
-   - Key Questions: "Who pays you today?", "Can you do this with a rented van (MVP)?", "Stop planning, start selling."
-   - DO NOT let them move to Phase 2 until they prove someone wants this.
+YOUR GOAL:
+Interview the user to fill out the 4 Phases of the 'Effortless Entrepreneur' Framework.
+Do not get stuck in the weeds. Do not ask for task lists. Ask for *Strategy*.
 
-2. **PHASE 2: THE HUNK FACTOR (Branding)**
-   - Goal: Differentiation. How is this not just a commodity?
-   - Key Questions: "What is the 'Experience'?", "Why would they remember your name?", "What is your 'Uniform' (Brand Identity)?"
+YOUR PROCESS (Track the user's progress):
+1. **Validation Strategy:** Who is the customer and what is the MVP? (Get the high-level concept).
+2. **Brand Strategy:** What is the "Hunk Factor"? (Differentiation/Vibe).
+3. **Systems Strategy:** How does this run without the founder? (Automation/Team).
+4. **Scale Strategy:** What is the franchise/exit vision?
 
-3. **PHASE 3: THE PLAYBOOK (Systematization)**
-   - Goal: Remove the founder from the daily work.
-   - Key Questions: "Write the manual.", "If you get sick, does the business stop?", "Automate or Delegate."
+BEHAVIOR:
+- Ask ONE clear, high-level question to define the current phase.
+- When the user answers, validate it briefly, then IMMEDIATEY move to the next phase.
+- Do not nag. If their answer is vague, accept it as a "Draft" and move on.
+- Your goal is to finish the Outline, not to coach them on daily tasks.
 
-4. **PHASE 4: SCALE (Franchise Mindset)**
-   - Goal: 10x Growth.
-   - Key Questions: "Can this be franchised?", "How do we replicate you?", "What is the exit strategy?"
-
-YOUR BEHAVIOR:
-- Check `current_stage` in context. Stick to that stage.
-- Be Direct. Use the "Ready, Fire, Aim" philosophy.
-- TONE: Encouraging but tough. "Madcap Style."
-- OUTPUT: Short paragraphs. End with ONE specific question to move them through the current phase.
+FINAL OUTPUT (When Phase 4 is done):
+Generate "THE MADCAP BLUEPRINT" in a code block.
+Structure it like a One-Page Business Plan:
+- **Executive Summary**
+- **Phase 1: Validation Plan**
+- **Phase 2: Brand Identity**
+- **Phase 3: Operational Systems**
+- **Phase 4: Scale & Exit**
+Then ask: "Does this outline match your vision? If so, we are ready to build."
 """
 
-# --- THE LANDING PAGE (The Gate) ---
+# --- THE LANDING PAGE ---
 def lead_gen_form():
-    # Header Section
     st.title("Madcap Pivot // Founder's Launchpad")
-    
     st.markdown("""
-    ### Stop Dreaming. Start Building.
-    Most "ideas" stay in your head because you lack a roadmap. 
-    **Madcap Pivot** is your 24/7 AI Co-Founder designed to take you from **"Napkin Sketch"** to **"Scalable Business."**
+    ### Architect Your Vision.
+    You have the idea. Now you need the **Blueprint**.
     
-    **Why use this?**
-    * **Validate Fast:** We use the *"Effortless Entrepreneur"* method to test your idea before you waste money.
-    * **Build Your Board:** Get instant feedback from an AI trained on the minds of top Venture Capitalists.
-    * **Create Your Deck:** Every conversation here builds the data you need for your future Pitch Deck.
+    This agent helps you design the **50,000-foot Strategic Outline** for your business.
+    We will walk through the 4 Phases of the *Madcap Methodology* to build your roadmap.
     
-    **Enter the Lab below to begin.**
+    *Output: A One-Page Strategic Blueprint you can use to start building.*
     ---
     """)
     
-    # Spy Data
     device_info, ip_address = get_browser_data()
     
-    # The Form
     with st.form("entry_form"):
         col1, col2 = st.columns(2)
         with col1:
@@ -102,35 +97,45 @@ def lead_gen_form():
             email = st.text_input("Email Address")
         with col2:
             phone = st.text_input("Phone Number")
-            
-        vision = st.text_area("What is your Business Vision?", placeholder="e.g. I want to start a premium mobile car wash service...")
+        vision = st.text_area("What is your Business Vision?", placeholder="e.g. AI Agent for Waste Management...")
         
-        st.caption("By entering, you agree to the Madcap Labs Beta Protocol.")
-        submitted = st.form_submit_button("Launch Session 🚀", type="primary")
+        submitted = st.form_submit_button("Start Blueprint Session 🚀", type="primary")
         
         if submitted:
             if name and email and vision:
-                with st.spinner("Initializing Launchpad..."):
+                with st.spinner("Initializing Architect..."):
                     save_lead_to_sheets(name, email, phone, vision, st.session_state.session_id, ip_address, device_info)
-                    
                     st.session_state.user_info = {"name": name, "vision": vision}
+                    st.session_state.blueprint_stage = 1 # Start Phase 1
                     
-                    # THE FIRST PROMPT (Kicks off Phase 1)
                     first_msg = (
-                        f"Welcome to the Lab, {name}. I've reviewed your vision for *'{vision}'*.\n\n"
-                        "We are starting at **Phase 1: The Cargo Van Test** (Validation).\n\n"
-                        "Forget the logo. Forget the website. **Who is the very first person who will pay you real money for this, and have you asked them yet?**"
+                        f"Hello {name}. Let's draft the Blueprint for *'{vision}'*.\n\n"
+                        "**Phase 1: Validation Strategy**\n"
+                        "We need to prove this works. In one sentence: **Who is your ideal first client, and what is the 'MVP' (Minimum Viable Product) you will sell them?**"
                     )
                     st.session_state.messages.append({"role": "assistant", "content": first_msg})
                     st.rerun()
             else:
-                st.error("Please fill in all fields to access the Launchpad.")
+                st.error("Please fill in all fields.")
 
 # --- THE MAIN INTERFACE ---
 def main_app():
     st.title("Madcap Pivot")
-    st.progress(25, text="Phase 1: Validation") # Visual progress bar (Static for now, dynamic later)
-    st.caption("Methodology: Effortless Entrepreneur // Ready. Fire. Aim.")
+    
+    # Progress Bar Logic
+    stage_map = {1: 25, 2: 50, 3: 75, 4: 90, 5: 100}
+    current_progress = stage_map.get(st.session_state.blueprint_stage, 100)
+    
+    stage_names = {
+        1: "Phase 1: Validation Strategy",
+        2: "Phase 2: Brand Differentiation",
+        3: "Phase 3: Systems & Ops",
+        4: "Phase 4: Scale Vision",
+        5: "Blueprint Complete"
+    }
+    current_label = stage_names.get(st.session_state.blueprint_stage, "Complete")
+    
+    st.progress(current_progress, text=current_label)
 
     # API Key Check
     if "OPENAI_API_KEY" in st.secrets:
@@ -145,13 +150,27 @@ def main_app():
             st.markdown(message["content"])
 
     # Input
-    if prompt := st.chat_input("Your response..."):
+    if prompt := st.chat_input("Your strategy..."):
         with st.chat_message("user"):
             st.markdown(prompt)
         st.session_state.messages.append({"role": "user", "content": prompt})
+        
+        # Advance Stage Logic (Simple Incrementer)
+        if st.session_state.blueprint_stage < 5:
+            st.session_state.blueprint_stage += 1
 
-        # Inject Context
-        full_system_prompt = f"{system_prompt_content}\n\nUSER CONTEXT: Name: {st.session_state.user_info['name']}. Vision: {st.session_state.user_info['vision']}."
+        # Context Injection
+        full_system_prompt = f"""
+        {system_prompt_content}
+        CONTEXT:
+        User: {st.session_state.user_info['name']}
+        Vision: {st.session_state.user_info['vision']}
+        Current Blueprint Phase: {st.session_state.blueprint_stage} / 4
+        
+        INSTRUCTION:
+        If Phase is 1-4: Acknowledge the user's last answer briefly, then ask the key strategic question for the NEW Phase.
+        If Phase is 5: Generate the full "Madcap Blueprint" Summary based on the chat history.
+        """
         
         conversation_history = [{"role": "system", "content": full_system_prompt}]
         conversation_history.extend([{"role": m["role"], "content": m["content"]} for m in st.session_state.messages])
