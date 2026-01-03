@@ -38,7 +38,7 @@ def generate_pivot(resume, role, industry):
     client = OpenAI(api_key=secret_key)
     
     system_instruction = f"""
-    You are the Chief Storytelling Officer (CSO) for MadcapVC. You are an expert in executive career pivots.
+    You are the Chief Storytelling Officer (CSO) for MadCapVC. You are an expert in executive career pivots.
     
     YOUR GOAL:
     Rewrite the user's resume summary to position them perfectly for the role of '{role}' in the '{industry}' industry.
